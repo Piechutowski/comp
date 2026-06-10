@@ -79,8 +79,8 @@ func completionScript(shell string) (string, error) {
 	switch shell {
 	case "fish":
 		return `complete -c comp -f
-complete -c comp -n '__fish_is_first_arg' -a '(__fish_complete_command)' -d 'CLI name'
-complete -c comp -n 'not __fish_is_first_arg' -a 'bash zsh fish' -d 'shell'
+complete -c comp -n 'test (count (commandline -opc)) -eq 1' -a '(__fish_complete_command)' -d 'CLI name'
+complete -c comp -n 'test (count (commandline -opc)) -eq 2' -a 'bash zsh fish' -d 'shell'
 `, nil
 	case "bash":
 		return `_comp_completions() {
