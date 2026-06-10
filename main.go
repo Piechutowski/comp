@@ -98,7 +98,7 @@ complete -F _comp_completions comp
 		return `#compdef comp
 _comp() {
     if (( CURRENT == 2 )); then
-        _command_names -e
+        _alternative 'commands:CLI name:_command_names -e'
     elif (( CURRENT == 3 )); then
         local -a shells
         shells=(bash zsh fish)
