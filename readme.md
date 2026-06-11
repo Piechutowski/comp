@@ -20,9 +20,10 @@ comp cli
 
 This will:
 
-1. Detect your shell from `$SHELL` (or use the explicitly passed `shell`
-   argument, one of `bash`, `zsh`, or `fish`).
-2. Run `sshl completion <shell>` to generate the completion script.
+1. Detect your shell from `$SHELL` (falling back to your parent process if
+   `$SHELL` isn't set), or use the explicitly passed `shell` argument, one
+   of `bash`, `zsh`, or `fish`.
+2. Run `<cli-name> completion <shell>` to generate the completion script.
 3. Write it to the appropriate location for your shell:
    - **fish**: `$XDG_CONFIG_HOME/fish/completions/<name>.fish`
      (defaults to `~/.config/fish/completions/<name>.fish`)
@@ -46,15 +47,6 @@ For zsh, make sure `~/.zsh/completions` is in your `$fpath` before
 ```sh
 fpath+=(~/.zsh/completions)
 autoload -U compinit && compinit
-```
-
-## Completing `comp` itself
-
-`comp` follows the same `<name> completion <shell>` convention it expects
-from other tools, so it can install completions for itself:
-
-```sh
-comp comp
 ```
 
 ## Building

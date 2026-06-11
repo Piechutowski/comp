@@ -5,29 +5,24 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+)
+
+const (
+	colorReset  = "\033[0m"
+	colorBold   = "\033[1m"
+	colorCyan   = "\033[36m"
+	colorYellow = "\033[33m"
+	colorRed    = "\033[31m"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: comp <cli-name> [shell]")
+		printUsage()
 		os.Exit(1)
 	}
 
 	name := os.Args[1]
-
-	if name == "completion" {
-		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: comp completion <bash|zsh|fish>")
-			os.Exit(1)
-		}
-		script, err := completionScript(os.Args[2])
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		fmt.Print(script)
-		return
-	}
 
 	shell := ""
 	if len(os.Args) >= 3 {
@@ -36,29 +31,29 @@ func main() {
 		shell = detectShell()
 	}
 	if shell == "" {
-		fmt.Fprintln(os.Stderr, "could not detect shell from $SHELL, pass it explicitly: comp <cli-name> <bash|zsh|fish>")
+		fmt.Fprintf(os.Stderr, "%scould not detect your shell, pass it explicitly: comp <cli-name> <bash|zsh|fish>%s\n", colorRed, colorReset)
 		os.Exit(1)
 	}
 
 	out, err := exec.Command(name, "completion", shell).Output()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to run %q completion %s: %v\n", name, shell, err)
+		fmt.Fprintf(os.Stderr, "%sfailed to run %q completion %s: %v%s\n", colorRed, name, shell, err, colorReset)
 		os.Exit(1)
 	}
 
 	path, err := targetPath(name, shell)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintf(os.Stderr, "%s%v%s\n", colorRed, err, colorReset)
 		os.Exit(1)
 	}
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to create directory %s: %v\n", filepath.Dir(path), err)
+		fmt.Fprintf(os.Stderr, "%sfailed to create directory %s: %v%s\n", colorRed, filepath.Dir(path), err, colorReset)
 		os.Exit(1)
 	}
 
 	if err := os.WriteFile(path, out, 0o644); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to write completion file %s: %v\n", path, err)
+		fmt.Fprintf(os.Stderr, "%sfailed to write completion file %s: %v%s\n", colorRed, path, err, colorReset)
 		os.Exit(1)
 	}
 
@@ -74,50 +69,26 @@ func main() {
 	fmt.Println("Restart your shell (or open a new tab) to pick up the changes.")
 }
 
-
-func completionScript(shell string) (string, error) {
-	switch shell {
-	case "fish":
-		return `complete -c comp -f
-complete -c comp -n 'test (count (commandline -opc)) -eq 1' -a '(__fish_complete_command)' -d 'CLI name'
-complete -c comp -n 'test (count (commandline -opc)) -eq 2' -a 'bash zsh fish' -d 'shell'
-`, nil
-	case "bash":
-		return `_comp_completions() {
-    local cur
-    cur="${COMP_WORDS[COMP_CWORD]}"
-    if [ "$COMP_CWORD" -eq 1 ]; then
-        COMPREPLY=( $(compgen -c -- "$cur") )
-    elif [ "$COMP_CWORD" -eq 2 ]; then
-        COMPREPLY=( $(compgen -W "bash zsh fish" -- "$cur") )
-    fi
-}
-complete -F _comp_completions comp
-`, nil
-	case "zsh":
-		return `#compdef comp
-_comp() {
-    if (( CURRENT == 2 )); then
-        _alternative 'commands:CLI name:_command_names -e'
-    elif (( CURRENT == 3 )); then
-        local -a shells
-        shells=(bash zsh fish)
-        _describe 'shell' shells
-    fi
-}
-_comp "$@"
-`, nil
-	default:
-		return "", fmt.Errorf("unsupported shell %q (supported: bash, zsh, fish)", shell)
-	}
+func printUsage() {
+	fmt.Printf("%s%scomp%s - install shell completions for any CLI\n\n", colorBold, colorCyan, colorReset)
+	fmt.Printf("%sUsage:%s\n", colorBold, colorReset)
+	fmt.Printf("  %scomp <cli-name> [shell]%s\n\n", colorYellow, colorReset)
+	fmt.Println("  <cli-name>  the CLI to install completions for (must support `<cli-name> completion <shell>`)")
+	fmt.Println("  [shell]     bash, zsh, or fish (auto-detected if omitted)")
 }
 
+// detectShell tries to figure out which shell invoked comp, first via $SHELL
+// and falling back to the name of the parent process.
 func detectShell() string {
-	shell := os.Getenv("SHELL")
-	if shell == "" {
-		return ""
+	if shell := os.Getenv("SHELL"); shell != "" {
+		return filepath.Base(shell)
 	}
-	return filepath.Base(shell)
+
+	if comm, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", os.Getppid())); err == nil {
+		return strings.TrimSpace(string(comm))
+	}
+
+	return ""
 }
 
 func targetPath(name, shell string) (string, error) {
