@@ -16,5 +16,3 @@ This will:
 1. Run `cli completion fish` to generate the completion script.
 2. Write it to `$XDG_CONFIG_HOME/fish/completions/<name>.fish`,
    defaulting to `~/.config/fish/completions/<name>.fish`.
-
-Restart your shell (or open a new tab) afterwards to pick up the changes.
