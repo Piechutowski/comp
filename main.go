@@ -5,29 +5,24 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+)
+
+const (
+	colorReset  = "\033[0m"
+	colorBold   = "\033[1m"
+	colorCyan   = "\033[36m"
+	colorYellow = "\033[33m"
+	colorGreen  = "\033[32m"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: comp <cli-name> [shell]")
+		printUsage()
 		os.Exit(1)
 	}
 
 	name := os.Args[1]
-
-	if name == "completion" {
-		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: comp completion <bash|zsh|fish>")
-			os.Exit(1)
-		}
-		script, err := completionScript(os.Args[2])
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		fmt.Print(script)
-		return
-	}
 
 	shell := ""
 	if len(os.Args) >= 3 {
@@ -36,7 +31,7 @@ func main() {
 		shell = detectShell()
 	}
 	if shell == "" {
-		fmt.Fprintln(os.Stderr, "could not detect shell from $SHELL, pass it explicitly: comp <cli-name> <bash|zsh|fish>")
+		fmt.Fprintln(os.Stderr, "could not detect shell, pass it explicitly: comp <cli-name> <bash|zsh|fish>")
 		os.Exit(1)
 	}
 
@@ -62,7 +57,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Installed %s completions for %s -> %s\n", shell, name, path)
+	fmt.Printf("%sInstalled%s %s%s%s completions for %s%s%s -> %s\n",
+		colorGreen, colorReset, colorBold, shell, colorReset, colorBold, name, colorReset, path)
 
 	switch shell {
 	case "zsh":
@@ -74,50 +70,31 @@ func main() {
 	fmt.Println("Restart your shell (or open a new tab) to pick up the changes.")
 }
 
-
-func completionScript(shell string) (string, error) {
-	switch shell {
-	case "fish":
-		return `complete -c comp -f
-complete -c comp -n 'test (count (commandline -opc)) -eq 1' -a '(__fish_complete_command)' -d 'CLI name'
-complete -c comp -n 'test (count (commandline -opc)) -eq 2' -a 'bash zsh fish' -d 'shell'
-`, nil
-	case "bash":
-		return `_comp_completions() {
-    local cur
-    cur="${COMP_WORDS[COMP_CWORD]}"
-    if [ "$COMP_CWORD" -eq 1 ]; then
-        COMPREPLY=( $(compgen -c -- "$cur") )
-    elif [ "$COMP_CWORD" -eq 2 ]; then
-        COMPREPLY=( $(compgen -W "bash zsh fish" -- "$cur") )
-    fi
-}
-complete -F _comp_completions comp
-`, nil
-	case "zsh":
-		return `#compdef comp
-_comp() {
-    if (( CURRENT == 2 )); then
-        _alternative 'commands:CLI name:_command_names -e'
-    elif (( CURRENT == 3 )); then
-        local -a shells
-        shells=(bash zsh fish)
-        _describe 'shell' shells
-    fi
-}
-_comp "$@"
-`, nil
-	default:
-		return "", fmt.Errorf("unsupported shell %q (supported: bash, zsh, fish)", shell)
-	}
+func printUsage() {
+	fmt.Printf("%s%susage:%s comp <cli-name> [shell]\n\n", colorBold, colorYellow, colorReset)
+	fmt.Printf("Installs shell completions for %s<cli-name>%s, which must support a\n", colorCyan, colorReset)
+	fmt.Printf("%s<cli-name> completion <shell>%s subcommand.\n\n", colorCyan, colorReset)
+	fmt.Printf("%sshell%s defaults to the shell you're currently running, detected\n", colorCyan, colorReset)
+	fmt.Println("automatically (override with bash, zsh, or fish).")
 }
 
+// detectShell tries to determine the current shell, first from $SHELL and
+// falling back to inspecting the parent process (so it works even when
+// $SHELL doesn't reflect the shell actually invoking comp).
 func detectShell() string {
-	shell := os.Getenv("SHELL")
-	if shell == "" {
-		return ""
+	if shell := os.Getenv("SHELL"); shell != "" {
+		return filepath.Base(shell)
 	}
-	return filepath.Base(shell)
+
+	if exe, err := os.Readlink(fmt.Sprintf("/proc/%d/exe", os.Getppid())); err == nil {
+		return filepath.Base(exe)
+	}
+
+	if data, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", os.Getppid())); err == nil {
+		return strings.TrimSpace(string(data))
+	}
+
+	return ""
 }
 
 func targetPath(name, shell string) (string, error) {
