@@ -21,13 +21,13 @@ comp <cli-name> [bash|zsh|fish|powershell]
 ## Install
 
 ```fish
-go install github.com/<you>/comp@latest
+go install github.com/piechutowski/comp@latest
 ```
 
-Or, if you use [gobin](https://github.com/<you>/gobin):
+Or, if you use [gobin](https://github.com/piechutowski/gobin):
 
 ```fish
-gobin addr github.com/<you>/comp
+gobin addr github.com/piechutowski/comp
 ```
 
 If `~/go/bin` is not on your PATH, add it with `fish_add_path ~/go/bin`.
