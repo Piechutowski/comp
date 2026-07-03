@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -31,7 +32,7 @@ func main() {
 		shell = detectShell()
 	}
 	if shell == "" {
-		fmt.Fprintf(os.Stderr, "%scould not detect your shell, pass it explicitly: comp <cli-name> <bash|zsh|fish>%s\n", colorRed, colorReset)
+		fmt.Fprintf(os.Stderr, "%scould not detect your shell, pass it explicitly: comp <cli-name> <bash|zsh|fish|powershell>%s\n", colorRed, colorReset)
 		os.Exit(1)
 	}
 
@@ -64,6 +65,9 @@ func main() {
 		fmt.Println("Make sure ~/.zsh/completions is in your $fpath before compinit runs, e.g. in ~/.zshrc:")
 		fmt.Println(`  fpath+=(~/.zsh/completions)`)
 		fmt.Println(`  autoload -U compinit && compinit`)
+	case "powershell":
+		fmt.Printf("Add this line to your PowerShell profile (%s):\n", "$PROFILE")
+		fmt.Printf("  . %s\n", path)
 	}
 
 	fmt.Println("Restart your shell (or open a new tab) to pick up the changes.")
@@ -74,20 +78,48 @@ func printUsage() {
 	fmt.Printf("%sUsage:%s\n", colorBold, colorReset)
 	fmt.Printf("  %scomp <cli-name> [shell]%s\n\n", colorYellow, colorReset)
 	fmt.Println("  <cli-name>  the CLI to install completions for (must support `<cli-name> completion <shell>`)")
-	fmt.Println("  [shell]     bash, zsh, or fish (auto-detected if omitted)")
+	fmt.Println("  [shell]     bash, zsh, fish, or powershell (auto-detected if omitted)")
 }
 
-// detectShell tries to figure out which shell invoked comp, first via $SHELL
-// and falling back to the name of the parent process.
+// detectShell detects the current shell, with OS-aware defaults:
+// Windows → powershell, Linux → fish (if $SHELL and parent process are unset/unknown).
 func detectShell() string {
 	if shell := os.Getenv("SHELL"); shell != "" {
-		return filepath.Base(shell)
+		return normalizeShell(filepath.Base(shell))
 	}
 
+	if runtime.GOOS == "windows" {
+		return "powershell"
+	}
+
+	// Try to identify the shell from the parent process name.
 	if comm, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", os.Getppid())); err == nil {
-		return strings.TrimSpace(string(comm))
+		if s := normalizeShell(strings.TrimSpace(string(comm))); s != "" {
+			return s
+		}
 	}
 
+	// On Linux, fall back to fish as the sensible modern default.
+	if runtime.GOOS == "linux" {
+		return "fish"
+	}
+
+	return ""
+}
+
+// normalizeShell maps shell executable names to the canonical shell name used
+// by CLI completion subcommands.
+func normalizeShell(name string) string {
+	switch strings.ToLower(name) {
+	case "bash":
+		return "bash"
+	case "zsh":
+		return "zsh"
+	case "fish":
+		return "fish"
+	case "powershell", "powershell.exe", "pwsh", "pwsh.exe":
+		return "powershell"
+	}
 	return ""
 }
 
@@ -112,7 +144,23 @@ func targetPath(name, shell string) (string, error) {
 		return filepath.Join(dataHome, "bash-completion", "completions", name), nil
 	case "zsh":
 		return filepath.Join(home, ".zsh", "completions", "_"+name), nil
+	case "powershell":
+		return powershellCompletionsDir(home, name)
 	default:
-		return "", fmt.Errorf("unsupported shell %q (supported: bash, zsh, fish)", shell)
+		return "", fmt.Errorf("unsupported shell %q (supported: bash, zsh, fish, powershell)", shell)
 	}
+}
+
+// powershellCompletionsDir returns the per-platform path for PowerShell
+// completion scripts. On Windows this is under Documents\PowerShell; on
+// Linux/Mac (pwsh) it follows the XDG config convention.
+func powershellCompletionsDir(home, name string) (string, error) {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(home, "Documents", "PowerShell", "Completions", name+".ps1"), nil
+	}
+	configHome := os.Getenv("XDG_CONFIG_HOME")
+	if configHome == "" {
+		configHome = filepath.Join(home, ".config")
+	}
+	return filepath.Join(configHome, "powershell", "Completions", name+".ps1"), nil
 }
