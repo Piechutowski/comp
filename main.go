@@ -25,15 +25,19 @@ func main() {
 
 	name := os.Args[1]
 
-	shell := ""
+	var shell string
 	if len(os.Args) >= 3 {
-		shell = os.Args[2]
+		shell = normalizeShell(os.Args[2])
+		if shell == "" {
+			fmt.Fprintf(os.Stderr, "%sunsupported shell %q (supported: bash, zsh, fish, powershell)%s\n", colorRed, os.Args[2], colorReset)
+			os.Exit(1)
+		}
 	} else {
 		shell = detectShell()
-	}
-	if shell == "" {
-		fmt.Fprintf(os.Stderr, "%scould not detect your shell, pass it explicitly: comp <cli-name> <bash|zsh|fish|powershell>%s\n", colorRed, colorReset)
-		os.Exit(1)
+		if shell == "" {
+			fmt.Fprintf(os.Stderr, "%scould not detect your shell, pass it explicitly: comp <cli-name> <bash|zsh|fish|powershell>%s\n", colorRed, colorReset)
+			os.Exit(1)
+		}
 	}
 
 	out, err := exec.Command(name, "completion", shell).Output()
@@ -156,11 +160,7 @@ func targetPath(name, shell string) (string, error) {
 
 	switch shell {
 	case "fish":
-		configHome := os.Getenv("XDG_CONFIG_HOME")
-		if configHome == "" {
-			configHome = filepath.Join(home, ".config")
-		}
-		return filepath.Join(configHome, "fish", "completions", name+".fish"), nil
+		return filepath.Join(xdgConfigHome(home), "fish", "completions", name+".fish"), nil
 	case "bash":
 		dataHome := os.Getenv("XDG_DATA_HOME")
 		if dataHome == "" {
@@ -183,9 +183,13 @@ func powershellCompletionsDir(home, name string) (string, error) {
 	if runtime.GOOS == "windows" {
 		return filepath.Join(home, "Documents", "PowerShell", "Completions", name+".ps1"), nil
 	}
-	configHome := os.Getenv("XDG_CONFIG_HOME")
-	if configHome == "" {
-		configHome = filepath.Join(home, ".config")
+	return filepath.Join(xdgConfigHome(home), "powershell", "Completions", name+".ps1"), nil
+}
+
+// xdgConfigHome returns $XDG_CONFIG_HOME, defaulting to ~/.config.
+func xdgConfigHome(home string) string {
+	if configHome := os.Getenv("XDG_CONFIG_HOME"); configHome != "" {
+		return configHome
 	}
-	return filepath.Join(configHome, "powershell", "Completions", name+".ps1"), nil
+	return filepath.Join(home, ".config")
 }
