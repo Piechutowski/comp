@@ -81,27 +81,50 @@ func printUsage() {
 	fmt.Println("  [shell]     bash, zsh, fish, or powershell (auto-detected if omitted)")
 }
 
-// detectShell detects the current shell, with OS-aware defaults:
-// Windows → powershell, Linux → fish (if $SHELL and parent process are unset/unknown).
+// detectShell figures out which shell to install completions for, so that
+// `comp <cli>` just works without passing a shell explicitly.
+//
+// Detection order:
+//  1. The parent process (the shell you actually typed the command in) — most
+//     accurate, works on Linux, macOS and Windows.
+//  2. The $SHELL environment variable (your login shell) — Unix only.
+//  3. An OS-aware default: Windows → powershell.
 func detectShell() string {
+	if s := normalizeShell(parentProcessName()); s != "" {
+		return s
+	}
+
 	if shell := os.Getenv("SHELL"); shell != "" {
-		return normalizeShell(filepath.Base(shell))
+		if s := normalizeShell(filepath.Base(shell)); s != "" {
+			return s
+		}
 	}
 
 	if runtime.GOOS == "windows" {
 		return "powershell"
 	}
 
-	// Try to identify the shell from the parent process name.
-	if comm, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", os.Getppid())); err == nil {
-		if s := normalizeShell(strings.TrimSpace(string(comm))); s != "" {
-			return s
+	return ""
+}
+
+// parentProcessName returns the executable name of the process that launched
+// comp (typically your interactive shell), or "" if it can't be determined.
+func parentProcessName() string {
+	ppid := os.Getppid()
+
+	// Linux: read the parent's name from procfs.
+	if runtime.GOOS == "linux" {
+		if comm, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", ppid)); err == nil {
+			return strings.TrimSpace(string(comm))
 		}
 	}
 
-	// On Linux, fall back to fish as the sensible modern default.
-	if runtime.GOOS == "linux" {
-		return "fish"
+	// macOS / other Unix: procfs is unavailable, so ask ps for the parent's
+	// command name.
+	if runtime.GOOS != "windows" {
+		if out, err := exec.Command("ps", "-o", "comm=", "-p", fmt.Sprintf("%d", ppid)).Output(); err == nil {
+			return filepath.Base(strings.TrimSpace(string(out)))
+		}
 	}
 
 	return ""
@@ -110,6 +133,8 @@ func detectShell() string {
 // normalizeShell maps shell executable names to the canonical shell name used
 // by CLI completion subcommands.
 func normalizeShell(name string) string {
+	// Login shells are often reported with a leading dash (e.g. "-zsh").
+	name = strings.TrimPrefix(name, "-")
 	switch strings.ToLower(name) {
 	case "bash":
 		return "bash"
