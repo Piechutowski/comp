@@ -18,8 +18,16 @@ PowerShell. Pass a shell explicitly if you want to override detection:
 comp <cli-name> [bash|zsh|fish|powershell]
 ```
 
-## Building
+## Install
 
-```sh
-go build -o comp .
+```fish
+go install github.com/<you>/comp@latest
 ```
+
+Or, if you use [gobin](https://github.com/<you>/gobin):
+
+```fish
+gobin addr github.com/<you>/comp
+```
+
+If `~/go/bin` is not on your PATH, add it with `fish_add_path ~/go/bin`.
