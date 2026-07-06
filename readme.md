@@ -1,18 +1,33 @@
-
 # comp
 
-A tiny tool that installs fish completions for any CLI that supports a
-`<name> completion fish` subcommand, the convention used by
-[urfave/cli](https://github.com/urfave/cli) and several other CLI frameworks.
+Install shell completions for any CLI that supports a
+`<name> completion <shell>` subcommand (the convention used by
+[urfave/cli](https://cli.urfave.org) and others).
 
-## Usage
+Just run:
 
 ```sh
-comp cli
+comp <cli-name>
 ```
 
-This will:
+`comp` detects your shell automatically and writes the completion script to the
+right place. Works on Linux, macOS and Windows with bash, zsh, fish and
+PowerShell. Pass a shell explicitly if you want to override detection:
 
-1. Run `cli completion fish` to generate the completion script.
-2. Write it to `$XDG_CONFIG_HOME/fish/completions/<name>.fish`,
-   defaulting to `~/.config/fish/completions/<name>.fish`.
+```sh
+comp <cli-name> [bash|zsh|fish|powershell]
+```
+
+## Install
+
+```fish
+go install github.com/piechutowski/comp@latest
+```
+
+Or, if you use [gobin](https://github.com/piechutowski/gobin):
+
+```fish
+gobin addr github.com/piechutowski/comp
+```
+
+If `~/go/bin` is not on your PATH, add it with `fish_add_path ~/go/bin`.
