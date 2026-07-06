@@ -17,6 +17,14 @@ const (
 	colorRed    = "\033[31m"
 )
 
+const (
+	colorReset  = "\033[0m"
+	colorBold   = "\033[1m"
+	colorCyan   = "\033[36m"
+	colorYellow = "\033[33m"
+	colorGreen  = "\033[32m"
+)
+
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
@@ -46,7 +54,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	path, err := targetPath(name, shell)
+	path, err := targetPath(name)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s%v%s\n", colorRed, err, colorReset)
 		os.Exit(1)
@@ -152,7 +160,7 @@ func normalizeShell(name string) string {
 	return ""
 }
 
-func targetPath(name, shell string) (string, error) {
+func targetPath(name string) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("could not determine home directory: %w", err)
