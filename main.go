@@ -46,7 +46,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	path, err := targetPath(name)
+	path, err := targetPath(name, shell)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s%v%s\n", colorRed, err, colorReset)
 		os.Exit(1)
@@ -152,7 +152,7 @@ func normalizeShell(name string) string {
 	return ""
 }
 
-func targetPath(name string) (string, error) {
+func targetPath(name, shell string) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("could not determine home directory: %w", err)
