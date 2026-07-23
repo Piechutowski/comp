@@ -17,14 +17,6 @@ const (
 	colorRed    = "\033[31m"
 )
 
-const (
-	colorReset  = "\033[0m"
-	colorBold   = "\033[1m"
-	colorCyan   = "\033[36m"
-	colorYellow = "\033[33m"
-	colorGreen  = "\033[32m"
-)
-
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
